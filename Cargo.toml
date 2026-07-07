@@ -1,0 +1,22 @@
+[package]
+name = "auto-update"
+version = "0.1.0"
+edition = "2024"
+description = "Self-updating support for CLI binaries: GitHub release checks, throttle, guard, binary replacement and re-exec"
+license = "Apache-2.0"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.52", features = ["full"] }
+self_update = { version = "0.44", default-features = false, features = [
+    "tar",
+    "zip",
+    "reqwest",
+    "rustls",
+] }
+self-replace = "1.1"
+tracing = "0.1"
+
+[dev-dependencies]
+filetime = "0.2"
+serial_test = "2.0"
