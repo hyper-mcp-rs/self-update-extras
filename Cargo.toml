@@ -15,8 +15,6 @@ categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 self_update = { version = "0.44", default-features = false, features = [
-    "tar",
-    "zip",
     "reqwest",
     "rustls",
 ] }
