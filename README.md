@@ -70,8 +70,13 @@ fn check_for_update() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Composition order matters
 
-Wrap from the inside out as **backend → throttle → restart**, so that
-`restart` is the outermost layer.
+Both wrappers can be used individually — you can wrap a backend with just
+`throttle::Update` or just `restart::Update` without the other. But if you
+use **both**, `restart` must always be the outermost layer:
+
+```text
+backend → throttle → restart
+```
 
 On a successful update, `restart` replaces the current process (`exec` on
 Unix) or spawns the new binary and exits (Windows) — in both cases the call
@@ -111,7 +116,7 @@ On Unix, calling `exec` replaces it in-place; on Windows, the caller must spawn 
 new binary and exit. The restart wrapper handles this transparently, re-executing the
 process with the same arguments so the user never has to manually re-launch.
 
-**Windows note:** On Windows the wrapper spawns the new binary and exits the old one,
+> **Windows note:** On Windows the wrapper spawns the new binary and exits the old one,
 so the original process ID is lost. If a parent process tracks your application by
 PID (e.g. a service manager or supervisor), it must be prepared to handle the PID
 disappearing and a new one appearing after an update.
