@@ -1,0 +1,28 @@
+# Architectural constraints for the auto-update crate.
+#
+# Enforced in CI via `sentrux check .` and surfaced to agents through the
+# MCP `check_rules` tool. Keep these aligned with the crate's design: two
+# small, independent, composable ReleaseUpdate wrappers.
+
+[constraints]
+# The dependency graph must stay acyclic.
+max_cycles = 0
+# Keep inter-file coupling low (grades A best ... F worst).
+max_coupling = "B"
+# Cap per-function cyclomatic complexity.
+max_cc = 25
+# Reject oversized "god" files that accumulate unrelated responsibilities.
+no_god_files = true
+
+# `restart` and `throttle` are independent, composable wrappers. They are
+# only ever layered together at the call site (see the crate docs), so
+# neither may depend on the other.
+[[boundaries]]
+from = "src/restart.rs"
+to = "src/throttle.rs"
+reason = "restart and throttle are independent wrappers; compose them at the call site, not by cross-importing"
+
+[[boundaries]]
+from = "src/throttle.rs"
+to = "src/restart.rs"
+reason = "restart and throttle are independent wrappers; compose them at the call site, not by cross-importing"
