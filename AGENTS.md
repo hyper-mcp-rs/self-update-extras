@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-auto-update is a Rust library of generic self-update helpers for CLI binaries. It provides two composable wrappers around `self_update`'s `ReleaseUpdate` trait: `throttle::Update` (limits how often update checks run) and `restart::Update` (re-executes the process into the freshly installed binary after an update).
+self-update-extras is a Rust library of generic self-update helpers for CLI binaries. It provides two composable wrappers around `self_update`'s `ReleaseUpdate` trait: `throttle::Update` (limits how often update checks run) and `restart::Update` (re-executes the process into the freshly installed binary after an update).
 
 ## Tooling
 

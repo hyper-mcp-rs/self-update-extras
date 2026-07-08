@@ -1,8 +1,8 @@
-# auto-update
+# self-update-extras
 
 Self-updating support for CLI binaries.
 
-`auto-update` provides two small, composable wrappers around any type that
+`self-update-extras` provides two small, composable wrappers around any type that
 implements [`self_update`](https://crates.io/crates/self_update)'s
 `ReleaseUpdate` trait. Each wrapper is itself a `ReleaseUpdate`, so they layer
 over a backend — or over each other — and can be used anywhere a
@@ -22,7 +22,7 @@ backends.
 
 ```toml
 [dependencies]
-auto-update = "0.1"
+self-update-extras = "0.1"
 self_update = "0.44"
 ```
 
@@ -33,7 +33,7 @@ returns an `UpdateBuilder`, and `build()` produces a
 `Box<dyn ReleaseUpdate>`.
 
 ```rust
-use auto_update::{restart, throttle};
+use self_update_extras::{restart, throttle};
 use self_update::backends::github;
 use self_update::update::ReleaseUpdate;
 use std::time::Duration;

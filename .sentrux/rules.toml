@@ -1,4 +1,4 @@
-# Architectural constraints for the auto-update crate.
+# Architectural constraints for the self-update-extras crate.
 #
 # Enforced in CI via `sentrux check .` and surfaced to agents through the
 # MCP `check_rules` tool. Keep these aligned with the crate's design: two

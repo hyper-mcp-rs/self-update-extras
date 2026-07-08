@@ -17,7 +17,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use auto_update::{restart, throttle};
+//! use self_update_extras::{restart, throttle};
 //! use self_update::backends::github;
 //! use self_update::update::ReleaseUpdate;
 //! use std::time::Duration;
