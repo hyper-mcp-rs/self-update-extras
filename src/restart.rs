@@ -8,6 +8,11 @@ use self_update::update::{Release, ReleaseUpdate, UpdateStatus};
 const DEFAULT_GUARD_ENV: &str = "RESTART_GUARD";
 
 /// Builder for a restart [`Update`].
+///
+/// Configure the inner [`ReleaseUpdate`] backend and an optional guard
+/// environment variable, then call [`build`](Self::build) to produce a
+/// `Box<dyn ReleaseUpdate>` that re-executes the process after a successful
+/// update.
 #[derive(Default)]
 pub struct UpdateBuilder {
     release_update: Option<Box<dyn ReleaseUpdate>>,
@@ -55,6 +60,22 @@ impl UpdateBuilder {
 
 /// Wraps a [`ReleaseUpdate`] and restarts the process with the freshly
 /// installed binary after a successful update.
+///
+/// After `update()` returns `Status::Updated`, the process is re-executed
+/// using the new binary. A guard environment variable prevents restart loops:
+/// once the restarted process detects the guard, it returns `UpToDate` instead
+/// of restarting again.
+///
+/// # Platform behavior
+///
+/// - **Unix**: Replaces the current process image via `exec` (never returns on success).
+/// - **Windows**: Spawns the new binary and exits with the child's status code.
+///
+/// # Guard environment variable
+///
+/// Defaults to `RESTART_GUARD` but can be customized via
+/// [`UpdateBuilder::guard_env`](UpdateBuilder::guard_env). The value is set to
+/// `"1"` during re-execution.
 pub struct Update {
     inner: Box<dyn ReleaseUpdate>,
     guard_env: String,

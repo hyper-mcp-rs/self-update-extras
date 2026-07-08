@@ -9,6 +9,10 @@ use std::time::Duration;
 const DEFAULT_THROTTLE_WINDOW: Duration = Duration::from_secs(15 * 60);
 
 /// Builder for a throttled [`Update`].
+///
+/// Configure the inner [`ReleaseUpdate`] backend and the throttle window,
+/// then call [`build`](Self::build) to produce a `Box<dyn ReleaseUpdate>`
+/// that skips update checks within the configured window.
 #[derive(Default)]
 pub struct UpdateBuilder {
     release_update: Option<Box<dyn ReleaseUpdate>>,
@@ -55,6 +59,12 @@ impl UpdateBuilder {
 /// The underlying update check is skipped when one was already performed
 /// within `throttle_window`. The time of the last check is tracked via a
 /// throttle file in the system temp directory.
+///
+/// # Throttle behavior
+///
+/// The throttle file is touched only after a *successful* update check.
+/// Failed checks do not reset the throttle window, allowing retries without
+/// waiting for the full window to elapse.
 pub struct Update {
     inner: Box<dyn ReleaseUpdate>,
     throttle_window: Duration,
