@@ -32,7 +32,7 @@
 //!
 //! let updater = restart::Update::configure()
 //!     .release_update(throttled)
-//!     .guard_env("HYPER_MCP_AUTO_UPDATED")
+//!     .guard_env("MY_APP_AUTO_UPDATED")
 //!     .build()?;
 //!
 //! let status = updater.update()?;

@@ -1,113 +1,114 @@
 # auto-update
 
-A minimal Rust library for wrapping self-updating logic with throttling and restart management. It accepts any type implementing `self_update::update::ReleaseUpdate` and adds automatic throttling (to limit check frequency) and restart handling (to prevent update loops and re-execute after updates).
+Self-updating support for CLI binaries.
 
-## Purpose
+`auto-update` provides two small, composable wrappers around any type that
+implements [`self_update`](https://crates.io/crates/self_update)'s
+`ReleaseUpdate` trait. Each wrapper is itself a `ReleaseUpdate`, so they layer
+over a backend — or over each other — and can be used anywhere a
+`ReleaseUpdate` is expected.
 
-This crate provides a thin wrapper around the `self_update` crate's `ReleaseUpdate` trait. It handles:
+- **`throttle::Update`** — limits how often update checks run, recording the
+  time of the last check in a throttle file in the system temp directory.
+- **`restart::Update`** — re-executes the process with the freshly installed
+  binary after a successful update, using a guard environment variable to
+  prevent restart loops.
 
-- **Throttling**: Limits update checks to a configurable time window (default: 15 minutes)
-- **Restart guard**: Prevents update loops via environment variable
-- **Process restart**: Re-executes with original arguments using Unix `exec()` semantics
+The actual update source (GitHub, a custom server, etc.) is supplied by the
+caller as any `ReleaseUpdate` implementation, e.g. one of `self_update`'s
+backends.
 
-The actual update source (GitHub, custom server, etc.) is provided by the caller through the `ReleaseUpdate` trait.
+## Installation
 
-**Note on Windows**: The restart behavior is Unix-focused. Windows support can be enabled via `WindowsPolicy` but re-exec semantics differ.
+```toml
+[dependencies]
+auto-update = "0.1"
+self_update = "0.44"
+```
 
 ## Usage
 
-### Integration Example
+Each wrapper follows `self_update`'s builder convention: `Update::configure()`
+returns an `UpdateBuilder`, and `build()` produces a
+`Box<dyn ReleaseUpdate>`.
 
 ```rust
-use auto_update::{Updater, WindowsPolicy};
+use auto_update::{restart, throttle};
+use self_update::backends::github;
 use self_update::update::ReleaseUpdate;
 use std::time::Duration;
 
-#[tokio::main]
-async fn main() {
-    // Implement ReleaseUpdate for your update source
-    let release_update = MyReleaseUpdate::new(
-        "hyper-mcp-rs",
-        "hyper-mcp",
-        "hyper-mcp"
-    );
+fn check_for_update() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Any `ReleaseUpdate` implementation — here, self_update's GitHub backend.
+    let backend = github::Update::configure()
+        .repo_owner("my-org")
+        .repo_name("my-app")
+        .bin_name("my-app")
+        .current_version(self_update::cargo_crate_version!())
+        .no_confirm(true)
+        .build()?;
 
-    let updater = Updater::new(release_update)
-        .guard_env("HYPER_MCP_AUTO_UPDATED")  // Prevent restart loops
-        .throttle_file("hyper-mcp-update-check")  // Throttle state file
-        .throttle_window(Duration::from_secs(15 * 60))  // Check interval
-        .windows_policy(WindowsPolicy::Disabled);  // Or Enabled
+    // 2. Throttle how often the check actually runs.
+    let throttled = throttle::Update::configure()
+        .release_update(backend)
+        .throttle_window(Duration::from_secs(15 * 60))
+        .build()?;
 
-    if let Err(e) = updater.run().await {
-        tracing::warn!(error = ?e, "Auto-update failed; continuing with the current version");
-    }
+    // 3. Restart into the new binary after a successful update.
+    //    `restart` must be the OUTERMOST wrapper — see the note below.
+    let updater = restart::Update::configure()
+        .release_update(throttled)
+        .guard_env("MY_APP_AUTO_UPDATED")
+        .build()?;
 
-    // Rest of your application...
-}
-
-// Your custom ReleaseUpdate implementation
-struct MyReleaseUpdate {
-    owner: String,
-    repo: String,
-    binary: String,
-}
-
-impl MyReleaseUpdate {
-    fn new(owner: &str, repo: &str, binary: &str) -> Self {
-        Self {
-            owner: owner.to_string(),
-            repo: repo.to_string(),
-            binary: binary.to_string(),
-        }
-    }
-}
-
-impl ReleaseUpdate for MyReleaseUpdate {
-    async fn update(&self) -> anyhow::Result<()> {
-        // Use self_update's backends or your own logic
-        let update = self_update::backends::github::Update::configure()
-            .repo_owner(&self.owner)
-            .repo_name(&self.repo)
-            .bin_name(&self.binary)
-            .current_version(self_update::cargo_crate_version!())
-            .no_confirm(true)
-            .show_download_progress(false)
-            .target(get_target())
-            .build()?;
-
-        update.update()?;
-        Ok(())
-    }
-}
-
-fn get_target() -> &'static str {
-    env!("BUILD_TARGET")
+    // Runs the check, respecting the throttle window and restart guard.
+    let status = updater.update()?;
+    println!("update status: {status:?}");
+    Ok(())
 }
 ```
 
-### Configuration
+### Composition order matters
 
-The `Updater` takes a user-provided `ReleaseUpdate` and adds throttling/restart behavior:
+Wrap from the inside out as **backend → throttle → restart**, so that
+`restart` is the outermost layer.
 
-| Method | Description |
-|--------|-------------|
-| `guard_env(env)` | Environment variable to prevent restart loops (default: `"AUTO_UPDATE_GUARD"`) |
-| `throttle_file(name)` | Throttle state file name (stored in `$TMPDIR`, default: `"auto-update-check"`) |
-| `throttle_window(duration)` | Minimum interval between checks (default: 15 minutes) |
-| `windows_policy(policy)` | Enable/disable auto-update on Windows (default: `Enabled`) |
+On a successful update, `restart` replaces the current process (`exec` on
+Unix) or spawns the new binary and exits (Windows) — in both cases the call
+**never returns on success**. If `throttle` were the outer wrapper, its
+"record the check time" step would never run because the process would already
+have been replaced.
 
-The `ReleaseUpdate` trait requires implementing a single async method:
+## Wrappers
 
-```rust
-#[async_trait::async_trait]
-pub trait ReleaseUpdate {
-    async fn update(&self) -> Result<(), anyhow::Error>;
-}
-```
+### `throttle::Update`
 
-### Build Requirements
+| Builder method | Description |
+|----------------|-------------|
+| `release_update(Box<dyn ReleaseUpdate>)` | The wrapped updater. **Required.** |
+| `throttle_window(Duration)` | Minimum interval between checks. Default: 15 minutes. |
+| `build()` | Returns `Result<Box<dyn ReleaseUpdate>>`; errors if `release_update` is missing. |
 
-The crate requires the `BUILD_TARGET` environment variable to be set at build time (automatically provided by Cargo as `TARGET`). This ensures the correct target-specific asset is downloaded.
+When `update()` is called, the check is skipped (returning `UpToDate`) if the
+throttle file was modified within `throttle_window`. Otherwise the wrapped
+updater runs and the throttle file is touched. The file lives at
+`<temp_dir>/<bin_name>.throttle`, where `bin_name` comes from the wrapped
+updater.
+
+### `restart::Update`
+
+| Builder method | Description |
+|----------------|-------------|
+| `release_update(Box<dyn ReleaseUpdate>)` | The wrapped updater. **Required.** |
+| `guard_env(&str)` | Guard environment variable used to prevent restart loops. Default: `RESTART_GUARD`. |
+| `build()` | Returns `Result<Box<dyn ReleaseUpdate>>`; errors if `release_update` is missing. |
+
+When `update()` returns `Updated`, the process restarts into the freshly
+installed binary, forwarding the original arguments and setting the guard
+variable. On the re-executed run the guard is detected and the check is
+skipped, so the update happens at most once per launch. Restart is supported
+on both Unix (via `exec`) and Windows (spawn-and-exit, propagating the child's
+exit code).
 
 ## License
 

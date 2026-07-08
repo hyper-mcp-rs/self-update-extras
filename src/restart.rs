@@ -5,7 +5,7 @@ use self_update::errors::{Error, Result};
 use self_update::update::{Release, ReleaseUpdate, UpdateStatus};
 
 /// Default guard environment variable name.
-const DEFAULT_GUARD_ENV: &str = "AUTO_UPDATE_GUARD";
+const DEFAULT_GUARD_ENV: &str = "RESTART_GUARD";
 
 /// Builder for a restart [`Update`].
 #[derive(Default)]
@@ -27,7 +27,7 @@ impl UpdateBuilder {
     }
 
     /// Set the guard environment variable name used to prevent restart loops.
-    /// Defaults to `AUTO_UPDATE_GUARD`.
+    /// Defaults to `RESTART_GUARD`.
     pub fn guard_env(&mut self, env: &str) -> &mut Self {
         self.guard_env = Some(env.to_owned());
         self
