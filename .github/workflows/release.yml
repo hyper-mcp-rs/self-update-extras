@@ -1,0 +1,26 @@
+name: Release
+
+# Cut a GitHub release whenever a vX.X.X tag is pushed. Nothing else —
+# no build, test, or publish steps live here.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${{ github.ref_name }}"
+          --title "${{ github.ref_name }}"
+          --generate-notes
