@@ -85,9 +85,12 @@ have been replaced.
 
 Why: Update checks over the network waste bandwidth, battery, and server resources.
 Without throttling, a user launching the same CLI multiple times in a short window
-would hammer the update endpoint every single time. The throttle wrapper records the
-last check time and returns `UpToDate` immediately when the configured window hasn't
-elapsed, avoiding unnecessary network calls.
+would hammer the update endpoint every single time. Many SaaS providers (GitHub,
+GitLab, etc.) also enforce API rate limits — unthrottled checks can burn through
+those quotas quickly, causing legitimate API calls to fail with 403 errors.
+The throttle wrapper records the last check time and returns `UpToDate` immediately
+when the configured window hasn't elapsed, avoiding unnecessary network calls and
+protecting against rate-limit exhaustion.
 
 | Builder method | Description |
 |----------------|-------------|
