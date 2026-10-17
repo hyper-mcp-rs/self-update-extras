@@ -14,7 +14,7 @@ keywords = ["self-update", "updater", "cli", "release", "github"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-self_update = { version = "0.44", default-features = false, features = [
+self_update = { version = "1.0", default-features = false, features = [
     "reqwest",
     "rustls",
 ] }
